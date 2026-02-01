@@ -12,6 +12,7 @@
       <h1>NCU Web Viewer</h1>
     </div>
     <div class="header-right">
+      <span id="baseline-label" class="baseline-label hidden"></span>
       <span id="file-name" class="file-label"></span>
       <button id="add-file-btn" class="add-file-btn hidden" title="Add another file">+ Add File</button>
       <input type="file" id="add-file-input" accept=".ncu-rep" hidden>
@@ -34,11 +35,33 @@
 
   <div id="app" class="app-layout hidden">
     <aside id="sidebar" class="sidebar">
-      <h3>Kernels</h3>
+      <div class="sidebar-header">
+        <h3>Kernels</h3>
+        <input type="text" id="kernel-search" class="kernel-search" placeholder="Search kernels...">
+        <select id="kernel-type-filter" class="kernel-filter">
+          <option value="">All Types</option>
+          <option value="GEMM">GEMM</option>
+          <option value="Conv">Convolution</option>
+          <option value="Reduce">Reduce</option>
+          <option value="Elementwise">Elementwise</option>
+          <option value="Softmax">Softmax</option>
+          <option value="Norm">Normalization</option>
+          <option value="Attention">Attention</option>
+          <option value="Memory">Memory</option>
+          <option value="Compute">Other Compute</option>
+        </select>
+      </div>
       <ul id="kernel-list"></ul>
-    </aside>
-    <main id="main-content" class="main-content">
-      <div id="tab-bar" class="tab-bar"></div>
+    </aside>    <main id="main-content" class="main-content">
+      <div class="toolbar">
+        <div id="tab-bar" class="tab-bar"></div>
+        <div class="toolbar-actions">
+          <button id="compare-toggle-btn" class="toolbar-btn hidden" title="Toggle comparison mode">Compare Mode</button>
+          <button id="export-csv-btn" class="toolbar-btn hidden" title="Export current section as CSV">Export CSV</button>
+          <button id="export-charts-btn" class="toolbar-btn hidden" title="Export charts as PNG">Export Charts</button>
+          <button id="baseline-btn" class="toolbar-btn hidden" title="Set current kernel as baseline">Set as Baseline</button>
+        </div>
+      </div>
       <div id="section-content" class="section-content"></div>
     </main>
   </div>

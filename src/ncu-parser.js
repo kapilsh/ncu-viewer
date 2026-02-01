@@ -598,11 +598,22 @@ export const NcuParser = {
         offset += entrySize;
       }
 
-      // Skip range results
+      // Read range results (might contain source data)
       for (let i = 0; i < blockHeader.numRangeResults; i++) {
         if (offset + 4 > bytes.byteLength) break;
         const entrySize = dv.getUint32(offset, true);
-        offset += 4 + entrySize;
+        offset += 4;
+        if (offset + entrySize > bytes.byteLength) break;
+
+        const entryData = bytes.subarray(offset, offset + entrySize);
+        // Try to parse range result to see if it contains source data
+        if (i === 0 && blockNum === 0) {
+          console.log('RangeResult entry size:', entrySize);
+          const rangeFields = this.Protobuf.parseFields(entryData);
+          console.log('RangeResult field numbers:', rangeFields.map(f => f.fieldNumber).join(', '));
+        }
+
+        offset += entrySize;
       }
 
       // If payload size was set, ensure we've moved past it
@@ -620,7 +631,25 @@ export const NcuParser = {
       this.transformResult(profileResult, stringTable)
     );
 
-    return { kernels, fileVersion: fileHeader.version };
+    // Collect session info from first kernel's device attributes
+    let sessionInfo = { fileVersion: fileHeader.version };
+    if (kernels.length > 0 && kernels[0]._metricMap) {
+      const m = kernels[0]._metricMap;
+      sessionInfo.deviceName = m['device__attribute_display_name'] || 'Unknown';
+      sessionInfo.computeCapability = m['device__attribute_compute_capability_major'] && m['device__attribute_compute_capability_minor']
+        ? `${m['device__attribute_compute_capability_major']}.${m['device__attribute_compute_capability_minor']}`
+        : 'Unknown';
+      sessionInfo.smCount = m['device__attribute_multiprocessor_count'] || 0;
+      sessionInfo.memoryTotal = m['device__attribute_global_memory_size'] || 0;
+      sessionInfo.maxThreadsPerBlock = m['device__attribute_max_threads_per_block'] || 0;
+      sessionInfo.maxSharedMemPerBlock = m['device__attribute_max_shared_memory_per_block'] || 0;
+      sessionInfo.maxRegistersPerBlock = m['device__attribute_max_registers_per_block'] || 0;
+      sessionInfo.clockRate = m['device__attribute_gpu_core_clock_rate'] || 0;
+      sessionInfo.memoryClockRate = m['device__attribute_memory_clock_rate'] || 0;
+      sessionInfo.l2CacheSize = m['device__attribute_l2_cache_size'] || 0;
+    }
+
+    return { kernels, fileVersion: fileHeader.version, sessionInfo };
   },
 
   // =========================================================================
