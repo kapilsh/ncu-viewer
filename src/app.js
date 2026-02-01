@@ -271,6 +271,8 @@ const App = {
     const kernel = this.getActiveKernel();
     if (!kernel) return;
 
+    console.log("Kernel source data:", kernel.source);
+
     const tabDefs = [
       { id: 'overview', label: 'Overview' },
       { id: 'sol', label: 'Speed of Light', match: 'GPU Speed Of Light Throughput' },
@@ -283,12 +285,15 @@ const App = {
       { id: 'instructions', label: 'Instructions', match: 'Instruction Statistics' },
       { id: 'distribution', label: 'Workload Dist.', match: 'GPU and Memory Workload Distribution' },
       { id: 'source', label: 'Source Counters', match: 'Source Counters' },
-      { id: 'pmsampling', label: 'PM Sampling', match: 'PM Sampling' }
+      { id: 'pmsampling', label: 'PM Sampling', match: 'PM Sampling' },
+      { id: 'sourcecode', label: 'Source', match: (k) => k.source && k.source.length > 0 }
     ];
 
-    const availableTabs = tabDefs.filter(t =>
-      t.id === 'overview' || kernel.sections.some(s => s.name === t.match)
-    );
+    const availableTabs = tabDefs.filter(t => {
+      if (t.id === 'overview') return true;
+      if (typeof t.match === 'function') return t.match(kernel);
+      return kernel.sections.some(s => s.name === t.match);
+    });
 
     const tabBar = document.getElementById('tab-bar');
     tabBar.innerHTML = '';
@@ -301,7 +306,12 @@ const App = {
       tabBar.appendChild(btn);
     });
 
-    this.selectTab(availableTabs[0].id);
+    // Check if the old active tab is still available, otherwise switch to the first one
+    if (availableTabs.some(t => t.id === this.activeTab)) {
+      this.selectTab(this.activeTab);
+    } else {
+      this.selectTab(availableTabs[0].id);
+    }
   },
 
   selectTab(tabId) {
@@ -332,7 +342,8 @@ const App = {
       instructions: () => this.renderGenericSection(kernel, 'Instruction Statistics'),
       distribution: () => this.renderGenericSection(kernel, 'GPU and Memory Workload Distribution'),
       source: () => this.renderGenericSection(kernel, 'Source Counters'),
-      pmsampling: () => this.renderGenericSection(kernel, 'PM Sampling')
+      pmsampling: () => this.renderGenericSection(kernel, 'PM Sampling'),
+      sourcecode: () => this.renderSourceCode(kernel)
     };
 
     const renderer = renderers[tabId];
@@ -374,6 +385,19 @@ const App = {
     }
   },
 
+  // --- Source Code Rendering ---
+  renderSourceCode(kernel) {
+    if (!kernel.source || kernel.source.length === 0) {
+      return '<p class="error-msg">No source information available for this kernel.</p>';
+    }
+    return `
+      <h2 class="section-title">Source Code</h2>
+      <div class="source-code-container">
+        ${this.sourceTable(kernel.source)}
+      </div>
+    `;
+  },
+  
   // --- Overview ---
   renderOverview(kernel) {
     const sol = Parser.findSection(kernel.sections, 'GPU Speed Of Light Throughput');
@@ -593,6 +617,40 @@ const App = {
   },
 
   // --- Helpers ---
+  sourceTable(sourceLines) {
+    let html = `<table class="source-table">
+      <thead><tr>
+        <th class="col-address">Address</th>
+        <th class="col-sass">SASS</th>
+        <th class="col-ptx">PTX</th>
+        <th class="col-source">Source</th>
+      </tr></thead>
+      <tbody>`;
+
+    let lastFile = '';
+    let lastLine = 0;
+
+    sourceLines.forEach(line => {
+      let fileDisplay = '';
+      if (line.file && (line.file !== lastFile || line.line !== lastLine)) {
+        const shortFile = line.file.split('/').pop();
+        fileDisplay = `<span class="source-loc" title="${this.escapeHtml(line.file)}">${this.escapeHtml(shortFile)}:${line.line}</span>`;
+        lastFile = line.file;
+        lastLine = line.line;
+      }
+
+      html += `<tr>
+        <td class="col-address">${this.escapeHtml(line.address)}</td>
+        <td class="col-sass"><pre>${this.escapeHtml(line.sass)}</pre></td>
+        <td class="col-ptx"><pre>${this.escapeHtml(line.ptx)}</pre></td>
+        <td class="col-source">${fileDisplay}</td>
+      </tr>`;
+    });
+
+    html += '</tbody></table>';
+    return html;
+  },
+
   metricsTable(section) {
     if (!section.metrics || section.metrics.length === 0) return '';
     let html = `<table class="metric-table">
@@ -610,7 +668,7 @@ const App = {
     html += '</tbody></table>';
     return html;
   },
-
+  
   renderHints(section) {
     if (!section.hints || section.hints.length === 0) return '';
     return section.hints.map(h => this.hintBox(h.type, h.text)).join('');

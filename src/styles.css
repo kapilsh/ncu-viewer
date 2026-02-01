@@ -491,3 +491,66 @@ header h1 {
   padding: 40px;
   font-size: 15px;
 }
+
+.source-code-container {
+  max-height: calc(100vh - 150px);
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: #0c101d;
+}
+
+.source-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+}
+
+.source-table th {
+  position: sticky;
+  top: 0;
+  background-color: #1a2238;
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.source-table td {
+  padding: 4px 10px;
+  border-bottom: 1px solid #1f2945;
+  white-space: nowrap;
+}
+
+.source-table tr:hover td {
+  background-color: #1d2744;
+}
+
+.source-table .col-address {
+  width: 120px;
+  color: var(--text-muted);
+}
+
+.source-table .col-sass {
+  color: #c8d2ff;
+}
+.source-table .col-ptx {
+  color: #a0a8d0;
+}
+
+.source-table .col-source {
+  width: 25%;
+  white-space: normal;
+  word-break: break-all;
+}
+
+.source-table pre {
+  margin: 0;
+  font-family: inherit;
+}
+
+.source-loc {
+  color: #67e8f9;
+  cursor: help;
+}

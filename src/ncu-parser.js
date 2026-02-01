@@ -274,57 +274,199 @@ export const NcuParser = {
     return { identifier, displayName, order, header };
   },
 
-  // =========================================================================
-  // ProfileResult decoder (from ProfilerReport.proto)
-  // Key fields:
-  //   5: KernelMangledName, 6: KernelFunctionName, 7: KernelDemangledName
-  //   10: GridSize (Uint64x3), 11: BlockSize (Uint64x3)
-  //   13: MetricResults (repeated ProfileMetricResult)
-  //   17: Sections (repeated ProfilerSection)
-  //   19: RuleResults (repeated RuleResult)
-  //   22: ContextID, 23: StreamID
-  // =========================================================================
-  decodeProfileResult(data) {
-    const fields = this.Protobuf.parseFields(data);
+    // =========================================================================
 
-    const kernelMangledName = this.Protobuf.toString(this.Protobuf.getFirst(fields, 5) ?? new Uint8Array());
-    const kernelFunctionName = this.Protobuf.toString(this.Protobuf.getFirst(fields, 6) ?? new Uint8Array());
-    const kernelDemangledName = this.Protobuf.toString(this.Protobuf.getFirst(fields, 7) ?? new Uint8Array());
+    // SourceLocator decoder
 
-    const gridData = this.Protobuf.getFirst(fields, 10);
-    const grid = gridData instanceof Uint8Array ? this.decodeUint64x3(gridData) : { X: 0, Y: 0, Z: 0 };
+    //   2: Line number (uint32)
 
-    const blockData = this.Protobuf.getFirst(fields, 11);
-    const block = blockData instanceof Uint8Array ? this.decodeUint64x3(blockData) : { X: 0, Y: 0, Z: 0 };
+    //   3: FilePathId (uint32, index into string table)
 
-    const contextId = Number(this.Protobuf.getFirst(fields, 22) ?? 0n);
-    const streamId = Number(this.Protobuf.getFirst(fields, 23) ?? 0n);
+    //   4: FilePath (string)
 
-    // Decode metric results
-    const metricResultFields = this.Protobuf.getAll(fields, 13);
-    const metricResults = metricResultFields.map(f => this.decodeMetricResult(f.value));
+    // =========================================================================
 
-    // Decode sections
-    const sectionFields = this.Protobuf.getAll(fields, 17);
-    const sections = sectionFields.map(f => this.decodeSection(f.value));
+    decodeSourceLocator(data) {
 
-    // Decode rule results
-    const ruleResultFields = this.Protobuf.getAll(fields, 19);
-    const ruleResults = ruleResultFields.map(f => this.decodeRuleResult(f.value));
+      const fields = this.Protobuf.parseFields(data);
 
-    return {
-      kernelMangledName,
-      kernelFunctionName,
-      kernelDemangledName,
-      grid,
-      block,
-      contextId,
-      streamId,
-      metricResults,
-      sections,
-      ruleResults
-    };
-  },
+      const lineNumber = Number(this.Protobuf.getFirst(fields, 2) ?? 0n);
+
+      const filePathId = Number(this.Protobuf.getFirst(fields, 3) ?? 0n);
+
+      const filePath = this.Protobuf.toString(this.Protobuf.getFirst(fields, 4) ?? new Uint8Array());
+
+      return { lineNumber, filePathId, filePath };
+
+    },
+
+  
+
+    // =========================================================================
+
+    // SourceLine decoder
+
+    //   1: Address (uint64)
+
+    //   2: SASS (string)
+
+    //   3: PTX (string)
+
+    //   5: SourceLocator (nested message)
+
+    // =========================================================================
+
+    decodeSourceLine(data) {
+
+      const fields = this.Protobuf.parseFields(data);
+
+      const address = this.Protobuf.getFirst(fields, 1) ?? 0n;
+
+      const sass = this.Protobuf.toString(this.Protobuf.getFirst(fields, 2) ?? new Uint8Array());
+
+      const ptx = this.Protobuf.toString(this.Protobuf.getFirst(fields, 3) ?? new Uint8Array());
+
+      
+
+      let locator = null;
+
+      const locatorData = this.Protobuf.getFirst(fields, 5);
+
+      if (locatorData instanceof Uint8Array) {
+
+        locator = this.decodeSourceLocator(locatorData);
+
+      }
+
+      
+
+      return { address, sass, ptx, locator };
+
+    },
+
+  
+
+    // =========================================================================
+
+    // ProfileResult decoder (from ProfilerReport.proto)
+
+    // Key fields:
+
+    //   5: KernelMangledName, 6: KernelFunctionName, 7: KernelDemangledName
+
+    //   10: GridSize (Uint64x3), 11: BlockSize (Uint64x3)
+
+    //   12: Source (repeated SourceLine)
+
+    //   13: MetricResults (repeated ProfileMetricResult)
+
+    //   17: Sections (repeated ProfilerSection)
+
+    //   19: RuleResults (repeated RuleResult)
+
+    //   22: ContextID, 23: StreamID
+
+    // =========================================================================
+
+          decodeProfileResult(data) {
+
+            const fields = this.Protobuf.parseFields(data);
+
+        
+
+      
+
+        console.log("Decoding ProfileResult fields:", fields);
+
+    
+
+  
+
+      const kernelMangledName = this.Protobuf.toString(this.Protobuf.getFirst(fields, 5) ?? new Uint8Array());
+
+      const kernelFunctionName = this.Protobuf.toString(this.Protobuf.getFirst(fields, 6) ?? new Uint8Array());
+
+      const kernelDemangledName = this.Protobuf.toString(this.Protobuf.getFirst(fields, 7) ?? new Uint8Array());
+
+  
+
+      const gridData = this.Protobuf.getFirst(fields, 10);
+
+      const grid = gridData instanceof Uint8Array ? this.decodeUint64x3(gridData) : { X: 0, Y: 0, Z: 0 };
+
+  
+
+      const blockData = this.Protobuf.getFirst(fields, 11);
+
+      const block = blockData instanceof Uint8Array ? this.decodeUint64x3(blockData) : { X: 0, Y: 0, Z: 0 };
+
+  
+
+      const contextId = Number(this.Protobuf.getFirst(fields, 22) ?? 0n);
+
+      const streamId = Number(this.Protobuf.getFirst(fields, 23) ?? 0n);
+
+  
+
+      // Decode source lines
+
+      const sourceLineFields = this.Protobuf.getAll(fields, 12);
+
+      const sourceLines = sourceLineFields.map(f => this.decodeSourceLine(f.value));
+
+  
+
+      // Decode metric results
+
+      const metricResultFields = this.Protobuf.getAll(fields, 13);
+
+      const metricResults = metricResultFields.map(f => this.decodeMetricResult(f.value));
+
+  
+
+      // Decode sections
+
+      const sectionFields = this.Protobuf.getAll(fields, 17);
+
+      const sections = sectionFields.map(f => this.decodeSection(f.value));
+
+  
+
+      // Decode rule results
+
+      const ruleResultFields = this.Protobuf.getAll(fields, 19);
+
+      const ruleResults = ruleResultFields.map(f => this.decodeRuleResult(f.value));
+
+  
+
+      return {
+
+        kernelMangledName,
+
+        kernelFunctionName,
+
+        kernelDemangledName,
+
+        grid,
+
+        block,
+
+        contextId,
+
+        streamId,
+
+        sourceLines,
+
+        metricResults,
+
+        sections,
+
+        ruleResults
+
+      };
+
+    },
 
   // =========================================================================
   // StringTable decoder
@@ -559,6 +701,28 @@ export const NcuParser = {
       cc = `${ccMajor}.${ccMinor}`;
     }
 
+    // Process source lines
+    const source = [];
+    if (pr.sourceLines) {
+      for (const sl of pr.sourceLines) {
+        let file = '';
+        if (sl.locator) {
+          if (sl.locator.filePath) {
+            file = sl.locator.filePath;
+          } else if (sl.locator.filePathId > 0 && stringTable[sl.locator.filePathId]) {
+            file = stringTable[sl.locator.filePathId];
+          }
+        }
+        source.push({
+          address: `0x${sl.address.toString(16)}`,
+          sass: sl.sass,
+          ptx: sl.ptx,
+          file: file,
+          line: sl.locator?.lineNumber ?? 0
+        });
+      }
+    }
+
     return {
       name: pr.kernelDemangledName || pr.kernelFunctionName || pr.kernelMangledName,
       functionName: pr.kernelFunctionName,
@@ -568,6 +732,7 @@ export const NcuParser = {
       contextId: pr.contextId,
       streamId: pr.streamId,
       sections,
+      source,
       _metricMap: metricMap  // keep raw metrics for advanced use
     };
   },
