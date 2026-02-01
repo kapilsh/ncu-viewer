@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NCU Web Viewer</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1>NCU Web Viewer</h1>
+    </div>
+    <div class="header-right">
+      <span id="file-name" class="file-label"></span>
+      <button id="add-file-btn" class="add-file-btn hidden" title="Add another file">+ Add File</button>
+      <input type="file" id="add-file-input" accept=".ncu-rep" hidden>
+    </div>
+  </header>
+
+  <div id="upload-screen" class="upload-screen">
+    <div class="upload-box" id="upload-box">
+      <div class="upload-icon">&#x1F4C4;</div>
+      <h2>Upload Nsight Compute Report</h2>
+      <p>Drag & drop a <code>.ncu-rep</code> file here, or click to browse</p>
+      <input type="file" id="file-input" accept=".ncu-rep" hidden>
+      <div id="upload-progress" class="upload-progress hidden">
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+        <span id="upload-status">Uploading...</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="app" class="app-layout hidden">
+    <aside id="sidebar" class="sidebar">
+      <h3>Kernels</h3>
+      <ul id="kernel-list"></ul>
+    </aside>
+    <main id="main-content" class="main-content">
+      <div id="tab-bar" class="tab-bar"></div>
+      <div id="section-content" class="section-content"></div>
+    </main>
+  </div>
+
+  <script src="js/parser.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
