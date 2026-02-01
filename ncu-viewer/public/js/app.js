@@ -1,10 +1,9 @@
 // Main application logic
 
 const App = {
-  // files: [{ fileId, fileName, kernels (summary list) }]
+  // files: [{ fileName, kernels (parsed array) }]
   files: [],
-  kernelData: {},    // cache keyed by "fileId:kernelIndex"
-  activeFileId: null,
+  activeFileIndex: -1,
   activeKernelIndex: -1,
   activeTab: '',
 
@@ -60,29 +59,22 @@ const App = {
     const status = document.getElementById('upload-status');
     progress.classList.remove('hidden');
     fill.style.width = '30%';
-    status.textContent = 'Uploading...';
-
-    const formData = new FormData();
-    formData.append('file', file);
+    status.textContent = 'Reading file...';
 
     try {
+      const arrayBuffer = await file.arrayBuffer();
       fill.style.width = '50%';
-      status.textContent = 'Parsing with ncu CLI...';
+      status.textContent = 'Parsing binary data...';
 
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Upload failed');
-      }
+      const result = await NcuParser.parseFile(arrayBuffer, msg => {
+        status.textContent = msg;
+      });
 
-      const data = await res.json();
       fill.style.width = '80%';
-      status.textContent = 'Loading kernels...';
+      status.textContent = 'Building UI...';
 
-      const kernelsRes = await fetch(`/api/kernels/${data.fileId}`);
-      const kernels = await kernelsRes.json();
-
-      this.files.push({ fileId: data.fileId, fileName: file.name, kernels });
+      const fileIndex = this.files.length;
+      this.files.push({ fileName: file.name, kernels: result.kernels });
       this.updateFileLabel();
       this.renderKernelList();
 
@@ -96,8 +88,8 @@ const App = {
       }, 300);
 
       // Select first kernel of this file
-      if (kernels.length > 0) {
-        this.selectKernel(data.fileId, 0);
+      if (result.kernels.length > 0) {
+        this.selectKernel(fileIndex, 0);
       }
 
     } catch (err) {
@@ -120,27 +112,18 @@ const App = {
     loadingLi.textContent = 'Loading ' + file.name + '...';
     ul.appendChild(loadingLi);
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Upload failed');
-      }
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await NcuParser.parseFile(arrayBuffer);
 
-      const data = await res.json();
-      const kernelsRes = await fetch(`/api/kernels/${data.fileId}`);
-      const kernels = await kernelsRes.json();
-
-      this.files.push({ fileId: data.fileId, fileName: file.name, kernels });
+      const fileIndex = this.files.length;
+      this.files.push({ fileName: file.name, kernels: result.kernels });
       this.updateFileLabel();
       this.renderKernelList();
 
       // Select first kernel of new file
-      if (kernels.length > 0) {
-        this.selectKernel(data.fileId, 0);
+      if (result.kernels.length > 0) {
+        this.selectKernel(fileIndex, 0);
       }
 
     } catch (err) {
@@ -161,6 +144,31 @@ const App = {
     }
   },
 
+  kernelSummary(kernel) {
+    // Extract short name (last segment of demangled name before parens)
+    let shortName = kernel.name || 'Unknown';
+    const parenIdx = shortName.indexOf('(');
+    if (parenIdx > 0) shortName = shortName.substring(0, parenIdx);
+    const parts = shortName.split('::');
+    shortName = parts[parts.length - 1];
+
+    // Find duration from Speed Of Light section
+    let duration = '';
+    const sol = Parser.findSection(kernel.sections, 'GPU Speed Of Light Throughput');
+    if (sol) {
+      const dur = Parser.findMetric(sol, 'Duration');
+      if (dur) duration = dur.value + ' ' + dur.unit;
+    }
+
+    return {
+      shortName,
+      grid: kernel.grid || '?',
+      block: kernel.block || '?',
+      duration,
+      name: kernel.name
+    };
+  },
+
   // --- Kernel List (grouped by file) ---
   renderKernelList() {
     const ul = document.getElementById('kernel-list');
@@ -168,7 +176,7 @@ const App = {
 
     const multiFile = this.files.length > 1;
 
-    this.files.forEach(f => {
+    this.files.forEach((f, fi) => {
       if (multiFile) {
         const groupDiv = document.createElement('div');
         groupDiv.className = 'file-group';
@@ -190,7 +198,7 @@ const App = {
         });
 
         f.kernels.forEach((k, i) => {
-          kernelsDiv.appendChild(this.createKernelLi(f.fileId, k, i));
+          kernelsDiv.appendChild(this.createKernelLi(fi, k, i));
         });
 
         groupDiv.appendChild(header);
@@ -198,17 +206,18 @@ const App = {
         ul.appendChild(groupDiv);
       } else {
         f.kernels.forEach((k, i) => {
-          ul.appendChild(this.createKernelLi(f.fileId, k, i));
+          ul.appendChild(this.createKernelLi(fi, k, i));
         });
       }
     });
   },
 
-  createKernelLi(fileId, k, index) {
+  createKernelLi(fileIndex, kernel, index) {
     const li = document.createElement('li');
-    li.dataset.fileId = fileId;
+    li.dataset.fileIndex = fileIndex;
     li.dataset.index = index;
 
+    const k = this.kernelSummary(kernel);
     const type = Parser.classifyKernel(k.name);
     li.innerHTML = `
       <div class="kernel-name">${this.escapeHtml(k.shortName)}</div>
@@ -220,43 +229,36 @@ const App = {
       </div>
     `;
 
-    if (fileId === this.activeFileId && index === this.activeKernelIndex) {
+    if (fileIndex === this.activeFileIndex && index === this.activeKernelIndex) {
       li.classList.add('active');
     }
 
-    li.addEventListener('click', () => this.selectKernel(fileId, index));
+    li.addEventListener('click', () => this.selectKernel(fileIndex, index));
     return li;
   },
 
-  async selectKernel(fileId, index) {
-    if (this.activeFileId === fileId && this.activeKernelIndex === index) return;
-    this.activeFileId = fileId;
+  selectKernel(fileIndex, index) {
+    if (this.activeFileIndex === fileIndex && this.activeKernelIndex === index) return;
+    this.activeFileIndex = fileIndex;
     this.activeKernelIndex = index;
 
     // Update sidebar active state
     document.querySelectorAll('#kernel-list li').forEach(li => {
       li.classList.toggle('active',
-        li.dataset.fileId === fileId && parseInt(li.dataset.index) === index);
+        parseInt(li.dataset.fileIndex) === fileIndex && parseInt(li.dataset.index) === index);
     });
-
-    // Load kernel data if not cached
-    const cacheKey = fileId + ':' + index;
-    if (!this.kernelData[cacheKey]) {
-      const res = await fetch(`/api/kernel/${fileId}/${index}`);
-      this.kernelData[cacheKey] = await res.json();
-    }
 
     this.renderTabs();
   },
 
   getActiveKernel() {
-    const cacheKey = this.activeFileId + ':' + this.activeKernelIndex;
-    return this.kernelData[cacheKey];
+    const file = this.files[this.activeFileIndex];
+    return file ? file.kernels[this.activeKernelIndex] : null;
   },
 
   getActiveKernelSummary() {
-    const file = this.files.find(f => f.fileId === this.activeFileId);
-    return file ? file.kernels[this.activeKernelIndex] : null;
+    const kernel = this.getActiveKernel();
+    return kernel ? this.kernelSummary(kernel) : null;
   },
 
   // --- Tabs ---
