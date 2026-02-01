@@ -1,5 +1,6 @@
 import './styles.css';
 import { NcuParser } from './ncu-parser.js';
+import { NcuParserProtobufJS } from './ncu-parser-protobufjs.js';
 import { Parser } from './parser.js';
 import { Charts } from './charts.js';
 import { getMetricDescription } from './metric-descriptions.js';
@@ -277,20 +278,86 @@ const App = {
     const fill = document.getElementById('progress-fill');
     const status = document.getElementById('upload-status');
     progress.classList.remove('hidden');
-    fill.style.width = '30%';
+    fill.style.width = '20%';
     status.textContent = 'Reading file...';
 
     try {
       const arrayBuffer = await file.arrayBuffer();
-      fill.style.width = '50%';
-      status.textContent = 'Parsing binary data...';
+      fill.style.width = '30%';
 
-      const result = await NcuParser.parseFile(arrayBuffer, msg => {
-        status.textContent = msg;
+      // Parse with hand-written parser
+      status.textContent = 'Parsing with hand-written parser...';
+      console.log('=== PARSING WITH HAND-WRITTEN PARSER ===');
+      const result1 = await NcuParser.parseFile(arrayBuffer.slice(0), msg => {
+        status.textContent = 'Hand-written: ' + msg;
       });
+
+      fill.style.width = '60%';
+
+      // Parse with protobuf.js parser
+      status.textContent = 'Parsing with protobuf.js parser...';
+      console.log('\n=== PARSING WITH PROTOBUF.JS PARSER ===');
+      const result2 = await NcuParserProtobufJS.parseFile(arrayBuffer.slice(0), msg => {
+        status.textContent = 'Protobuf.js: ' + msg;
+      });
+
+      fill.style.width = '70%';
+      status.textContent = 'Comparing results...';
+
+      // Compare results
+      console.log('\n=== COMPARISON ===');
+      console.log(`Hand-written parser found ${result1.kernels.length} kernels`);
+      console.log(`Protobuf.js parser found ${result2.kernels.length} kernels`);
+
+      if (result1.kernels.length > 0 && result2.kernels.length > 0) {
+        const k1 = result1.kernels[0];
+        const k2 = result2.kernels[0];
+
+        console.log('\nFirst kernel comparison:');
+        console.log('  Name match:', k1.name === k2.name, k1.name);
+        console.log('  Grid match:', k1.grid === k2.grid, k1.grid);
+        console.log('  Block match:', k1.block === k2.block, k1.block);
+        console.log('  Sections count:', k1.sections.length, 'vs', k2.sections.length);
+        console.log('  Source lines count:', k1.source?.length || 0, 'vs', k2.source?.length || 0);
+
+        if (k1.source && k1.source.length > 0) {
+          console.log('\n!!! HAND-WRITTEN PARSER FOUND SOURCE LINES !!!');
+          console.log('Sample:', k1.source[0]);
+        }
+
+        if (k2.source && k2.source.length > 0) {
+          console.log('\n!!! PROTOBUF.JS PARSER FOUND SOURCE LINES !!!');
+          console.log('Sample:', k2.source[0]);
+        }
+
+        // Compare metrics
+        if (k1.sections.length > 0 && k2.sections.length > 0) {
+          const s1 = k1.sections[0];
+          const s2 = k2.sections[0];
+          console.log('\nFirst section comparison:');
+          console.log('  Name:', s1.name, 'vs', s2.name);
+          console.log('  Metrics count:', s1.metrics.length, 'vs', s2.metrics.length);
+
+          // Check for any extra metrics in either parser
+          const m1Names = new Set(s1.metrics.map(m => m.rawName || m.name));
+          const m2Names = new Set(s2.metrics.map(m => m.rawName || m.name));
+          const onlyIn1 = [...m1Names].filter(n => !m2Names.has(n));
+          const onlyIn2 = [...m2Names].filter(n => !m1Names.has(n));
+
+          if (onlyIn1.length > 0) {
+            console.log('  Metrics only in hand-written parser:', onlyIn1.slice(0, 5));
+          }
+          if (onlyIn2.length > 0) {
+            console.log('  Metrics only in protobuf.js parser:', onlyIn2.slice(0, 5));
+          }
+        }
+      }
 
       fill.style.width = '80%';
       status.textContent = 'Building UI...';
+
+      // Use the hand-written parser result (or protobuf.js if you want to test it)
+      const result = result1;
 
       const fileIndex = this.files.length;
       this.files.push({ fileName: file.name, kernels: result.kernels });
@@ -298,7 +365,7 @@ const App = {
       this.renderKernelList();
 
       fill.style.width = '100%';
-      status.textContent = 'Done!';
+      status.textContent = 'Done! Check console for comparison.';
 
       setTimeout(() => {
         document.getElementById('upload-screen').classList.add('hidden');
@@ -312,6 +379,7 @@ const App = {
       }
 
     } catch (err) {
+      console.error('Parse error:', err);
       status.textContent = 'Error: ' + err.message;
       fill.style.width = '0%';
     }
