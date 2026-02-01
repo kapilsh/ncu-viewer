@@ -1,3 +1,8 @@
+import './styles.css';
+import { NcuParser } from './ncu-parser.js';
+import { Parser } from './parser.js';
+import { Charts } from './charts.js';
+
 // Main application logic
 
 const App = {

@@ -1,7 +1,7 @@
 // ncu-parser.js - Client-side .ncu-rep binary file parser
 // Parses the NVR protobuf format directly without requiring the ncu CLI
 
-const NcuParser = {
+export const NcuParser = {
   // =========================================================================
   // Low-level protobuf wire format decoder
   // =========================================================================

@@ -1,6 +1,6 @@
 // Client-side data formatting helpers
 
-const Parser = {
+export const Parser = {
   // Parse a metric value string to a number (handles commas, percentages)
   toNumber(val) {
     if (val == null || val === '') return NaN;

@@ -1,6 +1,11 @@
+import { Chart, registerables } from 'chart.js';
+import { Parser } from './parser.js';
+
+Chart.register(...registerables);
+
 // Chart.js visualization builders with dark theme
 
-const Charts = {
+export const Charts = {
   // Store chart instances for cleanup
   instances: {},
 
