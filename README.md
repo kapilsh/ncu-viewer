@@ -1,4 +1,4 @@
-# NCU Web Viewer
+# NCU Web Viewer (Archived: Moved to https://github.com/kapilsh/perfessor)
 
 A comprehensive browser-based viewer for NVIDIA Nsight Compute (`.ncu-rep`) profiling reports. Parse and analyze GPU kernel performance entirely client-side in your browser.
 
